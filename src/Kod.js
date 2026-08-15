@@ -37,9 +37,18 @@ function fetchPublications() {
         "Authorization": `Token token="${token}"`,
       },
     });
-    console.log(JSON.parse(response.getContentText()));
+    const data = JSON.parse(response.getContentText());
+    console.log(data);
+    showJsonDialog_(data);
   } catch (error) {
     console.error("Failed to fetch publications:", error);
     throw error;
   }
+}
+
+function showJsonDialog_(data) {
+  const template = HtmlService.createTemplateFromFile("Viewer");
+  template.json = JSON.stringify(data, null, 2);
+  const html = template.evaluate().setWidth(720).setHeight(520);
+  SpreadsheetApp.getUi().showModalDialog(html, "Publications (JSON)");
 }
