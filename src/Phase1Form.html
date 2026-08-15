@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 16px;
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 14px;
+      }
+      .hidden { display: none !important; }
+      .field { margin-bottom: 12px; }
+      .field label {
+        display: block;
+        font-size: 11px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #666;
+        margin-bottom: 4px;
+      }
+      .field .value {
+        background: #f7f7f7;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 8px 10px;
+        min-height: 20px;
+        word-break: break-word;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      .actions button { flex: 1; }
+      #empty { font-size: 15px; color: #444; margin-top: 24px; text-align: center; }
+      #confirm {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: #fdecea;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
+        color: #721c24;
+      }
+      #error {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: #fff3cd;
+        border: 1px solid #ffe69c;
+        border-radius: 4px;
+        color: #664d03;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="form">
+      <div class="field">
+        <label>Old Title</label>
+        <div class="value" id="oldTitle"></div>
+      </div>
+      <div class="field">
+        <label>New Title</label>
+        <div class="value" id="newTitle"></div>
+      </div>
+      <div class="field">
+        <label>Source</label>
+        <div class="value" id="source"></div>
+      </div>
+      <div class="field">
+        <label>URL</label>
+        <div class="value" id="url"></div>
+      </div>
+      <div class="field">
+        <label>Notes</label>
+        <div class="value" id="notes"></div>
+      </div>
+      <div id="confirm" class="hidden">Delete this row? Press Enter to confirm, Esc to cancel.</div>
+      <div id="error" class="hidden"></div>
+      <div class="actions">
+        <button id="curate">Curate (c)</button>
+        <button id="delete">Delete (d)</button>
+        <button onclick="google.script.host.close()">Close</button>
+      </div>
+    </div>
+    <div id="empty" class="hidden">All items processed — no more rows with empty Status.</div>
+
+    <script>
+      let current = null;
+      let awaitingDeleteConfirm = false;
+
+      function blurActive() {
+        if (document.activeElement && document.activeElement.blur) {
+          document.activeElement.blur();
+        }
+      }
+
+      function showError(err) {
+        const el = document.getElementById("error");
+        el.textContent = "Error: " + (err && err.message ? err.message : err);
+        el.classList.remove("hidden");
+      }
+
+      function hideError() {
+        document.getElementById("error").classList.add("hidden");
+      }
+
+      function setValues(item) {
+        document.getElementById("oldTitle").textContent = item.oldTitle;
+        document.getElementById("newTitle").textContent = item.newTitle;
+        document.getElementById("source").textContent = item.source;
+        document.getElementById("notes").textContent = item.notes;
+
+        const urlEl = document.getElementById("url");
+        urlEl.textContent = "";
+        if (item.url) {
+          const a = document.createElement("a");
+          a.href = item.url;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.textContent = item.url;
+          a.addEventListener("click", function () {
+            this.blur();
+          });
+          urlEl.appendChild(a);
+        }
+      }
+
+      function showEmpty() {
+        current = null;
+        awaitingDeleteConfirm = false;
+        document.getElementById("form").classList.add("hidden");
+        document.getElementById("empty").classList.remove("hidden");
+      }
+
+      function loadNext() {
+        hideError();
+        google.script.run
+          .withSuccessHandler(function (item) {
+            if (item) {
+              current = item;
+              setValues(item);
+            } else {
+              showEmpty();
+            }
+          })
+          .withFailureHandler(showError)
+          .getNextPhase1Item();
+      }
+
+      function curate() {
+        if (!current) return;
+        const row = current.row;
+        google.script.run
+          .withSuccessHandler(loadNext)
+          .withFailureHandler(showError)
+          .markPhase1Curated(row);
+      }
+
+      function confirmDelete() {
+        if (!current) return;
+        awaitingDeleteConfirm = true;
+        document.getElementById("confirm").classList.remove("hidden");
+      }
+
+      function doDelete() {
+        if (!current) return;
+        const row = current.row;
+        awaitingDeleteConfirm = false;
+        document.getElementById("confirm").classList.add("hidden");
+        google.script.run
+          .withSuccessHandler(loadNext)
+          .withFailureHandler(showError)
+          .deletePhase1Row(row);
+      }
+
+      function cancelDelete() {
+        awaitingDeleteConfirm = false;
+        document.getElementById("confirm").classList.add("hidden");
+      }
+
+      document.getElementById("curate").addEventListener("click", function () {
+        blurActive();
+        curate();
+      });
+
+      document.getElementById("delete").addEventListener("click", function () {
+        blurActive();
+        confirmDelete();
+      });
+
+      window.addEventListener("keydown", function (e) {
+        if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+        if (!awaitingDeleteConfirm && ["BUTTON", "A", "INPUT", "TEXTAREA"].indexOf(e.target.tagName) !== -1) return;
+
+        const key = e.key.toLowerCase();
+        if (awaitingDeleteConfirm) {
+          if (key === "enter") {
+            e.preventDefault();
+            doDelete();
+          } else if (key === "escape") {
+            e.preventDefault();
+            cancelDelete();
+          }
+          return;
+        }
+
+        if (key === "c") {
+          e.preventDefault();
+          curate();
+        } else if (key === "d") {
+          e.preventDefault();
+          confirmDelete();
+        }
+      });
+
+      loadNext();
+    </script>
+  </body>
+</html>
