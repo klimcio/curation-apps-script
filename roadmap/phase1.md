@@ -61,24 +61,27 @@ Form shows: Old Title (A), New Title (B), Notes (C), URL (D), Source (F).
 
 ## Server functions (src/Kod.js)
 
-- `getNextPhase1Item()` — scan rows 2..last for the first row whose Status (H) is empty (trimmed); return `{ row, oldTitle, newTitle, notes, url, source }` or `null`. Fully blank rows are skipped.
-- `markPhase1Curated(row)` — compare-and-swap: re-read Status; if no longer empty, abort; otherwise set H to `Phase 2`.
+- `getNextPhase1Item()` — scan rows 2..last for the first row whose Status (H) is empty (trimmed); return `{ row, oldTitle, newTitle, notes, url, source }` or `null`. Fully blank rows are skipped. `newTitle` is cleaned via `cleanNewTitle_()`: if it starts with `en:::` (case-insensitive), the prefix is stripped and the remainder trimmed.
+- `cleanNewTitle_(raw)` — trims the value; if it starts with `en:::` (case-insensitive), returns the remainder trimmed, otherwise the trimmed value.
+- `markPhase1Curated(row)` — compare-and-swap: re-read Status; if no longer empty, abort; otherwise persist the cleaned New Title to column B and set H to `Phase 2`.
 - `deletePhase1Row(row)` — compare-and-swap, then `deleteRow(row)`.
 - `openPhase1Form()` — launch the `Phase1Form.html` dialog.
 
 ## Form UI (src/Phase1Form.html)
 
-- Read-only fields; URL rendered as a clickable link (opens in new tab).
+- **New Title** rendered as an `h4` header at the top of the form (placeholder `(no new title)` when blank); remaining fields are read-only: Old Title, Source, URL (clickable link, opens in new tab), Notes.
 - Buttons: **Curate (c)**, **Delete (d)**, **Close**.
-- Keyboard: `c` curates, `d` opens delete confirmation (Enter = yes, Esc = no); shortcuts ignore modifier keys.
+- Keyboard: `c` curates, `d` opens delete confirmation (Enter = yes, Esc = no); shortcuts ignore modifier keys and are disabled while processing.
+- **Processing indicator**: on every server call (initial load, auto-advance, curate, delete) the form text is greyed, all buttons disabled, and a `Processing…` label shows below the buttons; it clears when the next row loads or an error occurs.
 - After each action the form auto-advances to the next item; when none remain, show "All items processed — no more rows with empty Status."
 - All content escaped to prevent HTML injection.
 
 ## Edge cases handled
 
 - Whitespace-only Status treated as empty; "Phase 2" exact constant.
+- `en:::` prefix stripped case-insensitively for display, and the cleaned value persisted to the sheet on curate.
 - Compare-and-swap prevents double-processing from stale row references.
 - Fully blank rows skipped.
-- Errors from `google.script.run` shown in the dialog.
+- Errors from `google.script.run` shown in the dialog and the processing state cleared.
 - Rows with a non-empty Status other than "Phase 2" are skipped (left untouched).
 - Active button blurred after click so keyboard shortcuts keep working.

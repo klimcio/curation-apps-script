@@ -101,7 +101,7 @@ function getNextPhase1Item() {
     return {
       row: row,
       oldTitle: String(values[COL.OLD_TITLE - 1] ?? ""),
-      newTitle: String(values[COL.NEW_TITLE - 1] ?? ""),
+      newTitle: cleanNewTitle_(values[COL.NEW_TITLE - 1]),
       notes: String(values[COL.NOTES - 1] ?? ""),
       url: String(values[COL.URL - 1] ?? ""),
       source: String(values[COL.SOURCE - 1] ?? ""),
@@ -118,9 +118,18 @@ function assertPhase1Pending_(sheet, row) {
   }
 }
 
+function cleanNewTitle_(raw) {
+  const value = String(raw ?? "").trim();
+  return value.toLowerCase().startsWith("en:::")
+    ? value.slice(5).trim()
+    : value;
+}
+
 function markPhase1Curated(row) {
   const sheet = SpreadsheetApp.getActiveSheet();
   assertPhase1Pending_(sheet, row);
+  const rawTitle = String(sheet.getRange(row, COL.NEW_TITLE).getValue() ?? "");
+  sheet.getRange(row, COL.NEW_TITLE).setValue(cleanNewTitle_(rawTitle));
   sheet.getRange(row, COL.STATUS).setValue(PHASE2_STATUS);
 }
 
