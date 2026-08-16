@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 16px;
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 14px;
+      }
+      .hidden { display: none !important; }
+      .field { margin-bottom: 12px; }
+      .field label {
+        display: block;
+        font-size: 11px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #666;
+        margin-bottom: 4px;
+      }
+      .field .value {
+        background: #f7f7f7;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 8px 10px;
+        min-height: 20px;
+        word-break: break-word;
+      }
+      .field input[type="text"],
+      .field select {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-family: inherit;
+        font-size: 14px;
+      }
+      #titleHeader {
+        margin: 0 0 16px;
+      }
+      #titleHeader input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-family: inherit;
+        font-size: 18px;
+        font-weight: bold;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      .actions button { flex: 1; }
+      #empty { font-size: 15px; color: #444; margin-top: 24px; text-align: center; }
+      #confirm {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: #fdecea;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
+        color: #721c24;
+      }
+      #error {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: #fff3cd;
+        border: 1px solid #ffe69c;
+        border-radius: 4px;
+        color: #664d03;
+        white-space: pre-wrap;
+      }
+      .processing #titleHeader input,
+      .processing .field .value,
+      .processing .field input,
+      .processing .field select {
+        color: #999;
+      }
+      button:disabled,
+      input:disabled,
+      select:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      #processing {
+        margin-top: 8px;
+        text-align: center;
+        color: #666;
+        font-size: 13px;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="form">
+      <div id="titleHeader">
+        <label>New Title</label>
+        <input type="text" id="newTitle" />
+      </div>
+      <div class="field">
+        <label>Old Title</label>
+        <div class="value" id="oldTitle"></div>
+      </div>
+      <div class="field">
+        <label>Source</label>
+        <div class="value" id="source"></div>
+      </div>
+      <div class="field">
+        <label>URL</label>
+        <div class="value" id="url"></div>
+      </div>
+      <div class="field">
+        <label>Notes</label>
+        <div class="value" id="notes"></div>
+      </div>
+      <div class="field">
+        <label>New URL</label>
+        <input type="text" id="newUrl" placeholder="Paste new URL here..." />
+      </div>
+      <div class="field">
+        <label>Target Category</label>
+        <select id="targetCategory"></select>
+      </div>
+      <div id="confirm" class="hidden">Delete this row? Press Enter to confirm, Esc to cancel.</div>
+      <div id="error" class="hidden"></div>
+      <div class="actions">
+        <button id="goTo">Go to (space)</button>
+        <button id="curate">Mark as Curation (c)</button>
+        <button id="delete">Delete (d)</button>
+        <button id="close" onclick="google.script.host.close()">Close</button>
+      </div>
+      <div id="processing" class="hidden">Processing...</div>
+    </div>
+    <div id="empty" class="hidden">All items processed — no more rows with Status "Phase 2".</div>
+
+    <script>
+      const CATEGORIES = [
+        "Godot-News",
+        "GodotCon",
+        "Resources",
+        "Assets",
+        "Tutorials",
+        "Plugins",
+        "ProTips",
+        "Project-Templates",
+        "Showcases",
+        "Miscellanous",
+        "Shaders",
+      ];
+
+      let current = null;
+      let awaitingDeleteConfirm = false;
+      let isProcessing = false;
+
+      function blurActive() {
+        if (document.activeElement && document.activeElement.blur) {
+          document.activeElement.blur();
+        }
+      }
+
+      function startProcessing() {
+        isProcessing = true;
+        document.body.classList.add("processing");
+        document.getElementById("processing").classList.remove("hidden");
+        ["goTo", "curate", "delete", "close"].forEach(function (id) {
+          document.getElementById(id).disabled = true;
+        });
+        document.getElementById("newTitle").disabled = true;
+        document.getElementById("newUrl").disabled = true;
+        document.getElementById("targetCategory").disabled = true;
+      }
+
+      function endProcessing() {
+        isProcessing = false;
+        document.body.classList.remove("processing");
+        document.getElementById("processing").classList.add("hidden");
+        ["goTo", "curate", "delete", "close"].forEach(function (id) {
+          document.getElementById(id).disabled = false;
+        });
+        document.getElementById("newTitle").disabled = false;
+        document.getElementById("newUrl").disabled = false;
+        document.getElementById("targetCategory").disabled = false;
+      }
+
+      function showError(err) {
+        endProcessing();
+        var el = document.getElementById("error");
+        el.textContent = "Error: " + (err && err.message ? err.message : err);
+        el.classList.remove("hidden");
+      }
+
+      function hideError() {
+        document.getElementById("error").classList.add("hidden");
+      }
+
+      function setValues(item) {
+        document.getElementById("newTitle").value = item.newTitle || "";
+        document.getElementById("oldTitle").textContent = item.oldTitle;
+        document.getElementById("source").textContent = item.source;
+        document.getElementById("notes").textContent = item.notes;
+        document.getElementById("newUrl").value = "";
+
+        var urlEl = document.getElementById("url");
+        urlEl.textContent = "";
+        if (item.url) {
+          var a = document.createElement("a");
+          a.href = item.url;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.textContent = item.url;
+          a.addEventListener("click", function () {
+            this.blur();
+          });
+          urlEl.appendChild(a);
+        }
+
+        var catSelect = document.getElementById("targetCategory");
+        catSelect.value = item.targetCategory || CATEGORIES[0];
+      }
+
+      function showEmpty() {
+        current = null;
+        awaitingDeleteConfirm = false;
+        document.getElementById("form").classList.add("hidden");
+        document.getElementById("empty").classList.remove("hidden");
+      }
+
+      function loadNext() {
+        hideError();
+        startProcessing();
+        google.script.run
+          .withSuccessHandler(function (item) {
+            endProcessing();
+            if (item) {
+              current = item;
+              setValues(item);
+            } else {
+              showEmpty();
+            }
+          })
+          .withFailureHandler(showError)
+          .getNextPhase2Item();
+      }
+
+      function goToUrl() {
+        if (!current || !current.url) return;
+        window.open(current.url, "_blank");
+      }
+
+      function curate() {
+        if (!current || isProcessing) return;
+        var editedTitle = document.getElementById("newTitle").value;
+        var editedNewUrl = document.getElementById("newUrl").value;
+        var editedCategory = document.getElementById("targetCategory").value;
+        var row = current.row;
+        startProcessing();
+        google.script.run
+          .withSuccessHandler(loadNext)
+          .withFailureHandler(showError)
+          .markPhase2Curation(row, editedTitle, editedNewUrl, editedCategory);
+      }
+
+      function confirmDelete() {
+        if (!current || isProcessing) return;
+        awaitingDeleteConfirm = true;
+        document.getElementById("confirm").classList.remove("hidden");
+      }
+
+      function doDelete() {
+        if (!current || isProcessing) return;
+        var row = current.row;
+        awaitingDeleteConfirm = false;
+        document.getElementById("confirm").classList.add("hidden");
+        startProcessing();
+        google.script.run
+          .withSuccessHandler(loadNext)
+          .withFailureHandler(showError)
+          .deletePhase2Row(row);
+      }
+
+      function cancelDelete() {
+        awaitingDeleteConfirm = false;
+        document.getElementById("confirm").classList.add("hidden");
+      }
+
+      document.getElementById("goTo").addEventListener("click", function () {
+        blurActive();
+        goToUrl();
+      });
+
+      document.getElementById("curate").addEventListener("click", function () {
+        blurActive();
+        curate();
+      });
+
+      document.getElementById("delete").addEventListener("click", function () {
+        blurActive();
+        confirmDelete();
+      });
+
+      window.addEventListener("keydown", function (e) {
+        if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+        if (isProcessing) return;
+        if (!awaitingDeleteConfirm && ["BUTTON", "A", "INPUT", "TEXTAREA", "SELECT"].indexOf(e.target.tagName) !== -1) return;
+
+        var key = e.key.toLowerCase();
+        if (awaitingDeleteConfirm) {
+          if (key === "enter") {
+            e.preventDefault();
+            doDelete();
+          } else if (key === "escape") {
+            e.preventDefault();
+            cancelDelete();
+          }
+          return;
+        }
+
+        if (key === "c") {
+          e.preventDefault();
+          curate();
+        } else if (key === "d") {
+          e.preventDefault();
+          confirmDelete();
+        } else if (key === " ") {
+          e.preventDefault();
+          goToUrl();
+        }
+      });
+
+      var catSelect = document.getElementById("targetCategory");
+      CATEGORIES.forEach(function (cat) {
+        var opt = document.createElement("option");
+        opt.value = cat;
+        opt.textContent = cat;
+        catSelect.appendChild(opt);
+      });
+
+      loadNext();
+    </script>
+  </body>
+</html>

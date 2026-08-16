@@ -1,6 +1,7 @@
 const CURATED_API_URL = "https://api.curated.co/api/v3/publications";
 const TOKEN_PROPERTY = "CURATED_API_TOKEN";
 const PHASE2_STATUS = "Phase 2";
+const CURATION_STATUS = "Curation";
 
 const COL = {
   OLD_TITLE: 1,
@@ -22,6 +23,7 @@ function onOpen() {
     .addItem("Set API Token", "setCuratedApiToken")
     .addItem("Fetch Publications", "fetchPublications")
     .addItem("Open Phase 1 Curation", "openPhase1Form")
+    .addItem("Open Phase 2 Curation", "openPhase2Form")
     .addToUi();
 }
 
@@ -136,5 +138,80 @@ function markPhase1Curated(row) {
 function deletePhase1Row(row) {
   const sheet = SpreadsheetApp.getActiveSheet();
   assertPhase1Pending_(sheet, row);
+  sheet.deleteRow(row);
+}
+
+const TARGET_CATEGORIES = [
+  "Godot-News",
+  "GodotCon",
+  "Resources",
+  "Assets",
+  "Tutorials",
+  "Plugins",
+  "ProTips",
+  "Project-Templates",
+  "Showcases",
+  "Miscellanous",
+  "Shaders",
+];
+
+function openPhase2Form() {
+  const html = HtmlService.createTemplateFromFile("Phase2Form")
+    .evaluate()
+    .setWidth(680)
+    .setHeight(540);
+  SpreadsheetApp.getUi().showModalDialog(html, "Phase 2 — Weekly Curation");
+}
+
+function getNextPhase2Item() {
+  const sheet = SpreadsheetApp.getActiveSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < DATA_START_ROW) {
+    return null;
+  }
+
+  const numRows = lastRow - DATA_START_ROW + 1;
+  const statuses = sheet.getRange(DATA_START_ROW, COL.STATUS, numRows, 1).getValues();
+
+  for (let i = 0; i < statuses.length; i++) {
+    const row = DATA_START_ROW + i;
+    if (String(statuses[i][0] ?? "").trim() !== PHASE2_STATUS) {
+      continue;
+    }
+
+    const values = sheet.getRange(row, 1, 1, 9).getValues()[0];
+    return {
+      row: row,
+      oldTitle: String(values[COL.OLD_TITLE - 1] ?? ""),
+      newTitle: cleanNewTitle_(values[COL.NEW_TITLE - 1]),
+      notes: String(values[COL.NOTES - 1] ?? ""),
+      url: String(values[COL.URL - 1] ?? ""),
+      source: String(values[COL.SOURCE - 1] ?? ""),
+      targetCategory: String(values[COL.TARGET_CATEGORY - 1] ?? ""),
+    };
+  }
+
+  return null;
+}
+
+function assertPhase2Pending_(sheet, row) {
+  const current = String(sheet.getRange(row, COL.STATUS).getValue() ?? "").trim();
+  if (current !== PHASE2_STATUS) {
+    throw new Error(`Row ${row} has Status "${current}", expected "${PHASE2_STATUS}". Reloading next item.`);
+  }
+}
+
+function markPhase2Curation(row, editedTitle, editedNewUrl, editedCategory) {
+  const sheet = SpreadsheetApp.getActiveSheet();
+  assertPhase2Pending_(sheet, row);
+  sheet.getRange(row, COL.NEW_TITLE).setValue(editedTitle);
+  sheet.getRange(row, COL.NEW_URL).setValue(editedNewUrl);
+  sheet.getRange(row, COL.TARGET_CATEGORY).setValue(editedCategory);
+  sheet.getRange(row, COL.STATUS).setValue(CURATION_STATUS);
+}
+
+function deletePhase2Row(row) {
+  const sheet = SpreadsheetApp.getActiveSheet();
+  assertPhase2Pending_(sheet, row);
   sheet.deleteRow(row);
 }
