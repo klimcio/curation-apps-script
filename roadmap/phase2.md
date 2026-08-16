@@ -36,7 +36,7 @@ After phase2 is over there should be no rows with "Status" marked as "Phase 2". 
 - **`en:::` prefix:** stripped on load for display, persisted on save — same as Phase 1.
 - **New URL default:** starts empty (blank); user types/pastes a new URL if needed.
 - **Go to button:** opens the original URL (column D) in a new tab.
-- **Target Category dropdown:** 11 hardcoded options (no dynamic source).
+- **Target Category dropdown:** 11 hardcoded options; starts empty (no prefill) — a category must be selected before marking as curation, otherwise a warning label shows below the buttons.
 - **Persist edits:** on "Mark as Curation", write edited New Title, New URL, and Target Category to the sheet alongside Status.
 
 ## Sheet column layout (fixed — same as Phase 1)
@@ -64,9 +64,11 @@ After phase2 is over there should be no rows with "Status" marked as "Phase 2". 
 
 - **h4 header:** New Title rendered as an `h4` at the top (placeholder `(no new title)` when blank); on load the `en:::` prefix is stripped for display; the edited value is persisted on save.
 - **Read-only fields:** Old Title, Notes, Source. URL rendered as a clickable link (opens in new tab).
-- **Editable inputs:** New URL (text input, starts empty), Target Category (dropdown with 11 hardcoded options, pre-selected from sheet value).
+- **Editable inputs:** New URL (text input, starts empty), Target Category (dropdown with 11 hardcoded options, always starts empty with an empty option).
 - **Buttons:** Go to (space), Mark as Curation (c), Delete (d), Close.
 - **Keyboard:** `c` → mark as curation, `d` → delete confirmation (Enter = yes, Esc = no), `space` → open original URL in new tab; shortcuts ignore modifier keys and are disabled while processing.
+- **Focus handling for shortcuts:** after an item loads, after picking a category, after pressing Enter in a text input, or after clicking a non-editable area, focus is blurred so `c`/`space`/`d` respond immediately. While focus is inside an editable input/select, shortcuts pause so typing works normally. `space` opens the URL via an anchor click (reliable in the GAS sandbox) rather than `window.open`.
+- **Category validation:** pressing `c` or clicking "Mark as Curation" with an empty category shows a warning label below the buttons ("Select a Target Category to mark for curation") and does not proceed.
 - **Processing indicator:** same as Phase 1 — grey all fields + inputs, disable all buttons + inputs + dropdown, show `Processing…` label below buttons; clears on next item load or error.
 - **Auto-advance:** same as Phase 1; empty state message when no rows remain.
 
@@ -78,5 +80,5 @@ After phase2 is over there should be no rows with "Status" marked as "Phase 2". 
 - Processing state cleared on error.
 - Delete confirmation prompt (Enter/Esc).
 - Active button blurred after click so keyboard shortcuts keep working.
-- Dropdown pre-selected from existing sheet value (or default to first option if blank).
+- Target Category always starts empty; curating without a category shows a warning and is blocked.
 - New URL starts empty — not pre-filled from sheet.

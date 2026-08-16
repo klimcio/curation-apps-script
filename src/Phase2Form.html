@@ -93,6 +93,14 @@
         font-size: 13px;
         font-style: italic;
       }
+      #warning {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: #fff3cd;
+        border: 1px solid #ffe69c;
+        border-radius: 4px;
+        color: #664d03;
+      }
     </style>
   </head>
   <body>
@@ -123,7 +131,9 @@
       </div>
       <div class="field">
         <label>Target Category</label>
-        <select id="targetCategory"></select>
+        <select id="targetCategory">
+          <option value=""></option>
+        </select>
       </div>
       <div id="confirm" class="hidden">Delete this row? Press Enter to confirm, Esc to cancel.</div>
       <div id="error" class="hidden"></div>
@@ -133,6 +143,7 @@
         <button id="delete">Delete (d)</button>
         <button id="close" onclick="google.script.host.close()">Close</button>
       </div>
+      <div id="warning" class="hidden">Select a Target Category to mark for curation.</div>
       <div id="processing" class="hidden">Processing...</div>
     </div>
     <div id="empty" class="hidden">All items processed — no more rows with Status "Phase 2".</div>
@@ -195,6 +206,15 @@
 
       function hideError() {
         document.getElementById("error").classList.add("hidden");
+        document.getElementById("warning").classList.add("hidden");
+      }
+
+      function showWarning() {
+        document.getElementById("warning").classList.remove("hidden");
+      }
+
+      function hideWarning() {
+        document.getElementById("warning").classList.add("hidden");
       }
 
       function setValues(item) {
@@ -218,8 +238,8 @@
           urlEl.appendChild(a);
         }
 
-        var catSelect = document.getElementById("targetCategory");
-        catSelect.value = item.targetCategory || CATEGORIES[0];
+        document.getElementById("targetCategory").value = "";
+        blurActive();
       }
 
       function showEmpty() {
@@ -248,20 +268,31 @@
 
       function goToUrl() {
         if (!current || !current.url) return;
-        window.open(current.url, "_blank");
+        var a = document.createElement("a");
+        a.href = current.url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
       }
 
       function curate() {
         if (!current || isProcessing) return;
+        var category = document.getElementById("targetCategory").value;
+        if (!category) {
+          showWarning();
+          return;
+        }
+        hideWarning();
         var editedTitle = document.getElementById("newTitle").value;
         var editedNewUrl = document.getElementById("newUrl").value;
-        var editedCategory = document.getElementById("targetCategory").value;
         var row = current.row;
         startProcessing();
         google.script.run
           .withSuccessHandler(loadNext)
           .withFailureHandler(showError)
-          .markPhase2Curation(row, editedTitle, editedNewUrl, editedCategory);
+          .markPhase2Curation(row, editedTitle, editedNewUrl, category);
       }
 
       function confirmDelete() {
@@ -302,6 +333,28 @@
         confirmDelete();
       });
 
+      var catSelect = document.getElementById("targetCategory");
+      catSelect.addEventListener("change", function () {
+        this.blur();
+        hideWarning();
+      });
+
+      ["newTitle", "newUrl"].forEach(function (id) {
+        document.getElementById(id).addEventListener("keydown", function (e) {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            this.blur();
+          }
+        });
+      });
+
+      document.getElementById("form").addEventListener("click", function (e) {
+        var tag = e.target.tagName;
+        if (["INPUT", "SELECT", "BUTTON", "A"].indexOf(tag) === -1) {
+          blurActive();
+        }
+      });
+
       window.addEventListener("keydown", function (e) {
         if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
         if (isProcessing) return;
@@ -331,7 +384,6 @@
         }
       });
 
-      var catSelect = document.getElementById("targetCategory");
       CATEGORIES.forEach(function (cat) {
         var opt = document.createElement("option");
         opt.value = cat;
