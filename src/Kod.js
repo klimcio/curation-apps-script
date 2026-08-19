@@ -367,6 +367,8 @@ function postLinkToCurated_(link) {
 
   const apiUrl = `${CURATED_API_URL}/${pubId}/links?${params.join("&")}`;
 
+  console.log(`POST ${apiUrl}`);
+
   try {
     const response = UrlFetchApp.fetch(apiUrl, {
       method: "POST",
@@ -378,14 +380,31 @@ function postLinkToCurated_(link) {
     });
 
     const code = response.getResponseCode();
+    const body = response.getContentText();
+    console.log(`Response ${code}: ${body.substring(0, 200)}`);
+
     if (code >= 200 && code < 300) {
-      const data = JSON.parse(response.getContentText());
-      return { success: true, linkId: data.id };
+      let data;
+      try {
+        data = JSON.parse(body);
+      } catch (parseErr) {
+        return { success: false, httpCode: code, error: "Invalid JSON response: " + body.substring(0, 100) };
+      }
+      return { success: true, httpCode: code, linkId: data.id };
     } else {
-      return { success: false, error: `HTTP ${code}` };
+      let errorMsg;
+      try {
+        const errData = JSON.parse(body);
+        errorMsg = errData.error || errData.message || errData.errors || body.substring(0, 200);
+        if (typeof errorMsg === "object") errorMsg = JSON.stringify(errorMsg);
+      } catch (_) {
+        errorMsg = body.substring(0, 200);
+      }
+      return { success: false, httpCode: code, error: errorMsg };
     }
   } catch (err) {
-    return { success: false, error: err.message };
+    console.error("postLinkToCurated_ failed:", err);
+    return { success: false, httpCode: 0, error: err.message };
   }
 }
 
