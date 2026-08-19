@@ -144,12 +144,14 @@ function markPhase1Curated(row) {
   const rawTitle = String(sheet.getRange(row, COL.NEW_TITLE).getValue() ?? "");
   sheet.getRange(row, COL.NEW_TITLE).setValue(cleanNewTitle_(rawTitle));
   sheet.getRange(row, COL.STATUS).setValue(PHASE2_STATUS);
+  return getNextPhase1Item();
 }
 
 function deletePhase1Row(row) {
   const sheet = SpreadsheetApp.getActiveSheet();
   assertPhase1Pending_(sheet, row);
   sheet.deleteRow(row);
+  return getNextPhase1Item();
 }
 
 const TARGET_CATEGORIES = [

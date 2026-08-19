@@ -195,20 +195,22 @@
         }
       }
 
+      function handleResult(result) {
+        endProcessing();
+        updateCounter(result.remaining);
+        if (result.item) {
+          current = result.item;
+          setValues(result.item);
+        } else {
+          showEmpty();
+        }
+      }
+
       function loadNext() {
         hideError();
         startProcessing();
         google.script.run
-          .withSuccessHandler(function (result) {
-            endProcessing();
-            updateCounter(result.remaining);
-            if (result.item) {
-              current = result.item;
-              setValues(result.item);
-            } else {
-              showEmpty();
-            }
-          })
+          .withSuccessHandler(handleResult)
           .withFailureHandler(showError)
           .getNextPhase1Item();
       }
@@ -216,9 +218,10 @@
       function curate() {
         if (!current || isProcessing) return;
         const row = current.row;
+        hideError();
         startProcessing();
         google.script.run
-          .withSuccessHandler(loadNext)
+          .withSuccessHandler(handleResult)
           .withFailureHandler(showError)
           .markPhase1Curated(row);
       }
@@ -234,9 +237,10 @@
         const row = current.row;
         awaitingDeleteConfirm = false;
         document.getElementById("confirm").classList.add("hidden");
+        hideError();
         startProcessing();
         google.script.run
-          .withSuccessHandler(loadNext)
+          .withSuccessHandler(handleResult)
           .withFailureHandler(showError)
           .deletePhase1Row(row);
       }
