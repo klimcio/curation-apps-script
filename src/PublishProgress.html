@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 16px;
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 14px;
+      }
+      h3 { margin: 0 0 12px; font-size: 16px; }
+      .counter {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 8px;
+      }
+      .progress {
+        height: 4px;
+        background: #eee;
+        border-radius: 2px;
+        margin-bottom: 12px;
+        overflow: hidden;
+      }
+      .progress .bar {
+        height: 100%;
+        background: #1a73e8;
+        border-radius: 2px;
+        transition: width 0.3s;
+      }
+      .log {
+        max-height: 260px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 8px 10px;
+        font-family: monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        background: #fafafa;
+        white-space: pre-wrap;
+      }
+      .log .ok { color: #2a7d2f; }
+      .log .err { color: #c00; }
+      .log .skip { color: #b07d00; }
+      .summary {
+        margin-top: 12px;
+        padding: 10px;
+        border-radius: 4px;
+        background: #f0f6ff;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .hidden { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <h3>Publish to Curated</h3>
+    <div id="counter" class="counter"></div>
+    <div class="progress"><div id="bar" class="bar" style="width:0"></div></div>
+    <div id="log" class="log"></div>
+    <div id="summary" class="summary hidden"></div>
+
+    <script>
+      var total = 0;
+      var done = 0;
+      var failed = 0;
+      var skipped = 0;
+      var links = [];
+      var skipItems = [];
+      var logEl = document.getElementById("log");
+      var counterEl = document.getElementById("counter");
+      var barEl = document.getElementById("bar");
+      var summaryEl = document.getElementById("summary");
+
+      function appendLog(msg, cls) {
+        var span = document.createElement("span");
+        if (cls) span.className = cls;
+        span.textContent = msg + "\n";
+        logEl.appendChild(span);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function updateProgress() {
+        var pct = total > 0 ? Math.round((done + failed) / total * 100) : 0;
+        counterEl.textContent = (done + failed) + " / " + total + " links  —  " + pct + "%";
+        barEl.style.width = pct + "%";
+      }
+
+      function finish() {
+        summaryEl.className = "summary";
+        var html = "<b>Publishing complete.</b><br>";
+        html += "✓ Published: " + done + "<br>";
+        if (failed > 0) html += '<span style="color:#c00">✗ Failed: ' + failed + "</span><br>";
+        if (skipped > 0) html += '<span style="color:#b07d00">⊘ Skipped: ' + skipped + "</span>";
+        if (skipItems.length > 0) {
+          html += "<br><b>Skipped items:</b><br>";
+          for (var i = 0; i < skipItems.length; i++) {
+            html += "• " + skipItems[i].title + " — " + skipItems[i].reason + "<br>";
+          }
+        }
+        summaryEl.innerHTML = html;
+      }
+
+      function processNext() {
+        if (links.length === 0) {
+          finish();
+          return;
+        }
+        var link = links.shift();
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result.success) {
+              done++;
+              appendLog("✓ " + link.title, "ok");
+              google.script.run
+                .withSuccessHandler(function() {
+                  updateProgress();
+                  processNext();
+                })
+                .withFailureHandler(function() {
+                  updateProgress();
+                  processNext();
+                })
+                .markRowPublished_(link.row);
+            } else {
+              failed++;
+              appendLog("✗ " + link.title + " — " + result.error, "err");
+              updateProgress();
+              processNext();
+            }
+          })
+          .withFailureHandler(function(err) {
+            failed++;
+            appendLog("✗ " + link.title + " — " + err.message, "err");
+            updateProgress();
+            processNext();
+          })
+          .postLinkToCurated_(link);
+      }
+
+      function start() {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            links = result.links;
+            skipItems = result.skipped;
+            skipped = skipItems.length;
+            total = links.length + skipped;
+
+            if (total === 0) {
+              counterEl.textContent = "Nothing to publish.";
+              finish();
+              return;
+            }
+
+            counterEl.textContent = "0 / " + total + " links";
+            appendLog("Found " + links.length + " links to publish, " + skipped + " skipped.", "");
+
+            for (var i = 0; i < skipItems.length; i++) {
+              appendLog("⊘ " + skipItems[i].title + " — " + skipItems[i].reason, "skip");
+            }
+
+            processNext();
+          })
+          .withFailureHandler(function(err) {
+            counterEl.textContent = "Error: " + err.message;
+          })
+          .getLinksToPublish();
+      }
+
+      start();
+    </script>
+  </body>
+</html>

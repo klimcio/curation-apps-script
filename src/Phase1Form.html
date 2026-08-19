@@ -50,6 +50,9 @@
       .processing .field .value {
         color: #999;
       }
+      .processing #counter {
+        color: #999;
+      }
       button:disabled {
         opacity: 0.5;
         cursor: default;
@@ -83,6 +86,7 @@
   </head>
   <body>
     <div id="form">
+      <div id="counter" style="font-size:13px;color:#888;margin-bottom:8px;"></div>
       <h4 id="newTitle"></h4>
       <div class="field">
         <label>Old Title</label>
@@ -182,15 +186,25 @@
         document.getElementById("empty").classList.remove("hidden");
       }
 
+      function updateCounter(remaining) {
+        const el = document.getElementById("counter");
+        if (remaining === 0) {
+          el.textContent = "";
+        } else {
+          el.textContent = remaining + " item" + (remaining === 1 ? "" : "s") + " left to curate";
+        }
+      }
+
       function loadNext() {
         hideError();
         startProcessing();
         google.script.run
-          .withSuccessHandler(function (item) {
+          .withSuccessHandler(function (result) {
             endProcessing();
-            if (item) {
-              current = item;
-              setValues(item);
+            updateCounter(result.remaining);
+            if (result.item) {
+              current = result.item;
+              setValues(result.item);
             } else {
               showEmpty();
             }
