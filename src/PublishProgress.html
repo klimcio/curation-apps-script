@@ -178,7 +178,7 @@
                   updateProgress();
                   processNext();
                 })
-                .markRowPublished_(link.row);
+                .markRowPublished(link.row);
             } else {
               failed++;
               row.children[2].textContent = "✗";
@@ -198,7 +198,7 @@
             updateProgress();
             processNext();
           })
-          .postLinkToCurated_(link);
+          .postLinkToCurated(link);
       }
 
       function start() {

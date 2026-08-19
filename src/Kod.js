@@ -351,7 +351,7 @@ function getLinksToPublish() {
   return { links, skipped };
 }
 
-function postLinkToCurated_(link) {
+function postLinkToCurated(link) {
   const token = PropertiesService.getScriptProperties().getProperty(TOKEN_PROPERTY);
   const pubId = PropertiesService.getScriptProperties().getProperty(PUBLICATION_ID_PROPERTY);
 
@@ -408,7 +408,7 @@ function postLinkToCurated_(link) {
   }
 }
 
-function markRowPublished_(row) {
+function markRowPublished(row) {
   const sheet = SpreadsheetApp.getActiveSheet();
   sheet.getRange(row, COL.STATUS).setValue(PUBLISHED_STATUS);
   sheet.getRange(row, COL.PUBLISHED_DATE).setValue(new Date());
