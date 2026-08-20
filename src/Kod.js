@@ -180,11 +180,14 @@ function getNextPhase2Item() {
   const sheet = SpreadsheetApp.getActiveSheet();
   const lastRow = sheet.getLastRow();
   if (lastRow < DATA_START_ROW) {
-    return null;
+    return { item: null, remaining: 0 };
   }
 
   const numRows = lastRow - DATA_START_ROW + 1;
   const statuses = sheet.getRange(DATA_START_ROW, COL.STATUS, numRows, 1).getValues();
+
+  let remaining = 0;
+  let first = null;
 
   for (let i = 0; i < statuses.length; i++) {
     const row = DATA_START_ROW + i;
@@ -192,19 +195,22 @@ function getNextPhase2Item() {
       continue;
     }
 
-    const values = sheet.getRange(row, 1, 1, 9).getValues()[0];
-    return {
-      row: row,
-      oldTitle: String(values[COL.OLD_TITLE - 1] ?? ""),
-      newTitle: cleanNewTitle_(values[COL.NEW_TITLE - 1]),
-      notes: String(values[COL.NOTES - 1] ?? ""),
-      url: String(values[COL.URL - 1] ?? ""),
-      source: String(values[COL.SOURCE - 1] ?? ""),
-      targetCategory: String(values[COL.TARGET_CATEGORY - 1] ?? ""),
-    };
+    remaining++;
+    if (!first) {
+      const values = sheet.getRange(row, 1, 1, 9).getValues()[0];
+      first = {
+        row: row,
+        oldTitle: String(values[COL.OLD_TITLE - 1] ?? ""),
+        newTitle: cleanNewTitle_(values[COL.NEW_TITLE - 1]),
+        notes: String(values[COL.NOTES - 1] ?? ""),
+        url: String(values[COL.URL - 1] ?? ""),
+        source: String(values[COL.SOURCE - 1] ?? ""),
+        targetCategory: String(values[COL.TARGET_CATEGORY - 1] ?? ""),
+      };
+    }
   }
 
-  return null;
+  return { item: first, remaining: remaining };
 }
 
 function assertPhase2Pending_(sheet, row) {

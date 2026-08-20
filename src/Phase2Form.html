@@ -57,6 +57,12 @@
       }
       .actions button { flex: 1; }
       #empty { font-size: 15px; color: #444; margin-top: 24px; text-align: center; }
+      #counter {
+        font-size: 12px;
+        color: #888;
+        margin-bottom: 12px;
+        text-align: right;
+      }
       #confirm {
         margin-top: 12px;
         padding: 10px 12px;
@@ -105,6 +111,7 @@
   </head>
   <body>
     <div id="form">
+      <div id="counter"></div>
       <div id="titleHeader">
         <label>New Title</label>
         <input type="text" id="newTitle" />
@@ -249,15 +256,25 @@
         document.getElementById("empty").classList.remove("hidden");
       }
 
+      function updateCounter(remaining) {
+        var el = document.getElementById("counter");
+        if (remaining === 0) {
+          el.textContent = "";
+        } else {
+          el.textContent = remaining + " item" + (remaining === 1 ? "" : "s") + " left in queue";
+        }
+      }
+
       function loadNext() {
         hideError();
         startProcessing();
         google.script.run
-          .withSuccessHandler(function (item) {
+          .withSuccessHandler(function (result) {
             endProcessing();
-            if (item) {
-              current = item;
-              setValues(item);
+            updateCounter(result.remaining);
+            if (result.item) {
+              current = result.item;
+              setValues(result.item);
             } else {
               showEmpty();
             }
