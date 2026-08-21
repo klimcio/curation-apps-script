@@ -87,6 +87,7 @@
   <body>
     <div id="form">
       <div id="counter" style="font-size:13px;color:#888;margin-bottom:8px;"></div>
+      <div id="confirm" class="hidden">Delete this row? Press Enter to confirm, Esc to cancel.</div>
       <h4 id="newTitle"></h4>
       <div class="field">
         <label>Old Title</label>
@@ -104,7 +105,6 @@
         <label>Notes</label>
         <div class="value" id="notes"></div>
       </div>
-      <div id="confirm" class="hidden">Delete this row? Press Enter to confirm, Esc to cancel.</div>
       <div id="error" class="hidden"></div>
       <div class="actions">
         <button id="curate">Curate (c)</button>
@@ -266,13 +266,20 @@
         if (!awaitingDeleteConfirm && ["BUTTON", "A", "INPUT", "TEXTAREA"].indexOf(e.target.tagName) !== -1) return;
 
         const key = e.key.toLowerCase();
+        if (key === "escape") {
+          e.preventDefault();
+          if (awaitingDeleteConfirm) {
+            cancelDelete();
+          } else {
+            google.script.host.close();
+          }
+          return;
+        }
+
         if (awaitingDeleteConfirm) {
           if (key === "enter") {
             e.preventDefault();
             doDelete();
-          } else if (key === "escape") {
-            e.preventDefault();
-            cancelDelete();
           }
           return;
         }

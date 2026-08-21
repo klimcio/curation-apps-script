@@ -378,13 +378,20 @@
         if (!awaitingDeleteConfirm && ["BUTTON", "A", "INPUT", "TEXTAREA", "SELECT"].indexOf(e.target.tagName) !== -1) return;
 
         var key = e.key.toLowerCase();
+        if (key === "escape") {
+          e.preventDefault();
+          if (awaitingDeleteConfirm) {
+            cancelDelete();
+          } else {
+            google.script.host.close();
+          }
+          return;
+        }
+
         if (awaitingDeleteConfirm) {
           if (key === "enter") {
             e.preventDefault();
             doDelete();
-          } else if (key === "escape") {
-            e.preventDefault();
-            cancelDelete();
           }
           return;
         }

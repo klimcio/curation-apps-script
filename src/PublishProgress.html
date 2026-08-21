@@ -230,6 +230,13 @@
           .getLinksToPublish();
       }
 
+      window.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          google.script.host.close();
+        }
+      });
+
       start();
     </script>
   </body>
