@@ -7,7 +7,7 @@ This document describes the end-to-end process of moving links from the **Google
 1. **One-time setup:** Set API Token → Set Publication ID (pick from fetched list)
 2. **Daily:** Open Phase 1 Curation → review empty-Status rows → mark as "Phase 2" or delete
 3. **Weekly:** Open Phase 2 Curation → review "Phase 2" rows → mark as "Curation" (with edits) or delete
-4. **Anytime:** Publish to Curated → reads all "Curation" rows → POSTs each link → marks them "Published" with a timestamp
+4. **Anytime:** Publish to Curated → reads all "Curation" rows → POSTs each link → HTTP 201 rows are deleted, non-201 rows are marked "Blocked"
 
 ## Overview
 
@@ -86,7 +86,8 @@ New menu item **Set Publication ID**:
 |---|---|---|
 | `CURATED_API_URL` | `https://api.curated.co/api/v3/publications` | Curated API base (v3, already in use) |
 | `CURATION_STATUS` | `Curation` | Selector for publish-ready rows |
-| `PUBLISHED_STATUS` | `Published` | Written to column H after a successful POST |
+| `PUBLISHED_STATUS` | `Published` | Legacy — no longer written by the publish flow (rows are deleted on 201) |
+| `BLOCKED_STATUS` | `Blocked` | Written to column H when a link returns a non-201 response |
 | `TARGET_CATEGORIES` | 11 fixed categories | Validation / mapping for the `category` param |
 
 ## 2. Data source: Google Sheets
@@ -180,13 +181,14 @@ Triggered manually via a new **Curated** menu item **Publish to Curated** (`publ
 1. Read `CURATED_API_TOKEN` and `CURATED_PUBLICATION_ID` from Script Properties; missing → throw and abort:
    - Missing token → `'API token not set. Use the "Set API Token" menu item first.'`
    - Missing publication ID → `'Publication ID not set. Use the "Set Publication ID" menu item first.'`
-2. Read all rows with Status = `Curation` in sheet order; skip invalid rows (neither New URL nor URL set, no category) with a logged warning.
+2. Read all rows with Status = `Curation`; skip invalid rows (neither New URL nor URL set, no category) with a logged warning. Links are returned lower-row-first and processed bottom-up so that deleting a row never shifts the row indices of pending links.
 3. Transform each row into a link.
 4. Open the progress dialog (`PublishProgress.html`).
 5. Send links to Curated **sequentially** (one `POST` at a time, awaiting each response); update the dialog counter and log after each result.
-6. On **success**: set Status (H) to `Published` **and** write the current timestamp to Published Date (J) — `markRowPublished_(row)`. This makes re-runs safe: published rows are no longer selected.
-7. On HTTP failure: log the failure in the dialog and continue with the next link (no retry, no delay).
-8. After all rows processed: show a summary in the dialog (X published, Y failed, Z skipped). Close button enabled.
+6. On HTTP **201** (`Created`): delete the row from the sheet — `deleteRowAfterPublish(row)`. This makes re-runs safe: created rows no longer exist in the sheet.
+7. On **success with any other status code** (e.g. 200 or other 2xx): keep the row but set Status (H) to `Blocked` — `markRowBlocked(row)` — so it is excluded from future runs but stays for review.
+8. On HTTP/network failure: log the failure in the dialog and continue with the next link (no retry, no delay).
+9. After all rows processed: show a summary in the dialog (X created & deleted, Y blocked, Z failed, W skipped). Close button enabled.
 
 ### Progress dialog
 
@@ -194,7 +196,7 @@ A modal dialog (`PublishProgress.html`, same pattern as Phase 1/2 forms) launche
 
 - **During the run:** header shows "Publishing link 3 of 12…" counter; below it, a live log where each row appends its result (title truncated, success with link id / failure with HTTP status code / skipped with reason).
 - **During the run:** dialog greyed out, all interaction blocked, "Processing…" label shown (same processing pattern as Phase 1/2).
-- **After completion:** summary line replaces the counter ("12 links published, 0 failed, 0 skipped"); Close button enabled.
+- **After completion:** summary line replaces the counter ("12 created & deleted, 0 blocked, 0 failed, 0 skipped"); Close button enabled.
 - **Console backup:** success/failure also logged to `console.log`/`console.error` for post-run review.
 
 ## Menu items added (implementation)

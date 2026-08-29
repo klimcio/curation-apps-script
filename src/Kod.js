@@ -4,6 +4,7 @@ const PUBLICATION_ID_PROPERTY = "CURATED_PUBLICATION_ID";
 const PHASE2_STATUS = "Phase 2";
 const CURATION_STATUS = "Curation";
 const PUBLISHED_STATUS = "Published";
+const BLOCKED_STATUS = "Blocked";
 
 const COL = {
   OLD_TITLE: 1,
@@ -326,7 +327,7 @@ function getLinksToPublish() {
     links.push({ row, title, url, category, image });
   }
 
-  return { links, skipped };
+  return { links: links.reverse(), skipped };
 }
 
 function postLinkToCurated(link) {
@@ -390,4 +391,13 @@ function markRowPublished(row) {
   const sheet = SpreadsheetApp.getActiveSheet();
   sheet.getRange(row, COL.STATUS).setValue(PUBLISHED_STATUS);
   sheet.getRange(row, COL.PUBLISHED_DATE).setValue(new Date());
+}
+
+function deleteRowAfterPublish(row) {
+  SpreadsheetApp.getActiveSheet().deleteRow(row);
+}
+
+function markRowBlocked(row) {
+  const sheet = SpreadsheetApp.getActiveSheet();
+  sheet.getRange(row, COL.STATUS).setValue(BLOCKED_STATUS);
 }

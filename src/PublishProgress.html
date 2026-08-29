@@ -99,7 +99,8 @@
 
     <script>
       var total = 0;
-      var done = 0;
+      var deleted = 0;
+      var blocked = 0;
       var failed = 0;
       var skipped = 0;
       var links = [];
@@ -131,17 +132,18 @@
       }
 
       function updateProgress() {
-        var pct = total > 0 ? Math.round((done + failed) / total * 100) : 0;
-        counterEl.textContent = (done + failed) + " / " + total + " links  —  " + pct + "%";
+        var pct = total > 0 ? Math.round((deleted + blocked + failed) / total * 100) : 0;
+        counterEl.textContent = (deleted + blocked + failed) + " / " + total + " links  —  " + pct + "%";
         barEl.style.width = pct + "%";
       }
 
       function finish() {
         summaryEl.className = "summary";
         var html = "<b>Publishing complete.</b><br>";
-        html += "✓ Published: " + done + "<br>";
+        html += "✓ Created & deleted: " + deleted + "<br>";
+        if (blocked > 0) html += '<span style="color:#b07d00">⛔ Blocked: ' + blocked + "</span><br>";
         if (failed > 0) html += '<span style="color:#c00">✗ Failed: ' + failed + "</span><br>";
-        if (skipped > 0) html += '<span style="color:#b07d00">⊘ Skipped: ' + skipped + "</span>";
+        if (skipped > 0) html += '<span style="color:#999">⊘ Skipped: ' + skipped + "</span>";
         if (skipItems.length > 0) {
           html += "<br><b>Skipped before sending:</b><br>";
           for (var i = 0; i < skipItems.length; i++) {
@@ -157,15 +159,15 @@
           return;
         }
         var link = links.shift();
-        var idx = done + failed + 1;
+        var idx = deleted + blocked + failed + 1;
         var row = addRow(idx, link.title, "⏳", "", "", "pending");
 
         google.script.run
           .withSuccessHandler(function(result) {
-            if (result.success) {
-              done++;
+            if (result.success && result.httpCode === 201) {
+              deleted++;
               row.children[2].textContent = "✓";
-              row.children[3].textContent = result.httpCode || "";
+              row.children[3].textContent = "201";
               row.className = "ok";
 
               google.script.run
@@ -174,11 +176,31 @@
                   processNext();
                 })
                 .withFailureHandler(function(err) {
-                  row.children[4].textContent = "Sheet write failed: " + err.message;
+                  row.children[4].textContent = "Row delete failed: " + err.message;
+                  failed++;
                   updateProgress();
                   processNext();
                 })
-                .markRowPublished(link.row);
+                .deleteRowAfterPublish(link.row);
+            } else if (result.success) {
+              blocked++;
+              row.children[2].textContent = "⛔";
+              row.children[3].textContent = result.httpCode || "";
+              row.children[4].textContent = "Row marked as Blocked";
+              row.className = "skip";
+
+              google.script.run
+                .withSuccessHandler(function() {
+                  updateProgress();
+                  processNext();
+                })
+                .withFailureHandler(function(err) {
+                  row.children[4].textContent = "Sheet write failed: " + err.message;
+                  failed++;
+                  updateProgress();
+                  processNext();
+                })
+                .markRowBlocked(link.row);
             } else {
               failed++;
               row.children[2].textContent = "✗";
