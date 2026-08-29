@@ -69,7 +69,7 @@ These indices are already defined as the `COL` object in `Kod.js` and must be re
 | `CURATED_API_TOKEN` | Curated API token | Existing `setCuratedApiToken()` menu item |
 | `CURATED_PUBLICATION_ID` | Target publication ID | New **Set Publication ID** flow (below) |
 
-Missing token or publication ID → throw and abort (same pattern as `fetchPublications()`).
+Missing token or publication ID → throw and abort (same pattern as `selectPublication()`).
 
 ### Selecting the target publication
 
@@ -78,7 +78,7 @@ New menu item **Set Publication ID**:
 1. `selectPublication()` — reuse the stored token and `GET {CURATED_API_URL}` (the existing publications fetch) to load the publication list.
 2. Open a picker dialog (`SelectPublication.html`) listing each publication by name + id.
 3. On selection, `savePublicationId(id)` stores it in Script Properties as `CURATED_PUBLICATION_ID`.
-4. If no token is set, throw the same "API token not set" error as `fetchPublications()`.
+4. If no token is set, throw the same "API token not set" error as `selectPublication()`.
 
 ### Constants in `src/Kod.js`
 

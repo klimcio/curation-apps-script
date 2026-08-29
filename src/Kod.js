@@ -24,7 +24,6 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu("Curated")
     .addItem("Set API Token", "setCuratedApiToken")
-    .addItem("Fetch Publications", "fetchPublications")
     .addItem("Open Phase 1 Curation", "openPhase1Form")
     .addItem("Open Phase 2 Curation", "openPhase2Form")
     .addItem("Set Publication ID", "selectPublication")
@@ -44,36 +43,6 @@ function setCuratedApiToken() {
     PropertiesService.getScriptProperties().setProperty(TOKEN_PROPERTY, token);
     ui.alert("Token saved.");
   }
-}
-
-function fetchPublications() {
-  const token = PropertiesService.getScriptProperties().getProperty(TOKEN_PROPERTY);
-  if (!token) {
-    throw new Error("API token not set. Use the 'Set API Token' menu item first.");
-  }
-
-  try {
-    const response = UrlFetchApp.fetch(CURATED_API_URL, {
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "Authorization": `Token token="${token}"`,
-      },
-    });
-    const data = JSON.parse(response.getContentText());
-    console.log(data);
-    showJsonDialog_(data);
-  } catch (error) {
-    console.error("Failed to fetch publications:", error);
-    throw error;
-  }
-}
-
-function showJsonDialog_(data) {
-  const template = HtmlService.createTemplateFromFile("Viewer");
-  template.json = JSON.stringify(data, null, 2);
-  const html = template.evaluate().setWidth(720).setHeight(520);
-  SpreadsheetApp.getUi().showModalDialog(html, "Publications (JSON)");
 }
 
 function openPhase1Form() {
