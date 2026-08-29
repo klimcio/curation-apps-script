@@ -164,7 +164,7 @@ const TARGET_CATEGORIES = [
   "ProTips",
   "Project-Templates",
   "Showcases",
-  "Miscellanous",
+  "Miscellaneous",
   "Shaders",
 ];
 
@@ -337,7 +337,10 @@ function getLinksToPublish() {
     const oldUrl = String(values[COL.URL - 1] ?? "").trim();
     const url = newUrl || oldUrl;
 
-    const category = String(values[COL.TARGET_CATEGORY - 1] ?? "").trim().toLowerCase();
+    let category = String(values[COL.TARGET_CATEGORY - 1] ?? "").trim().toLowerCase();
+    if (category === "miscellanous") {
+      category = "miscellaneous";
+    }
 
     if (!url) {
       skipped.push({ title: title || "(no title)", reason: "No URL set" });

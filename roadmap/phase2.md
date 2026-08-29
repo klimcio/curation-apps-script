@@ -12,7 +12,7 @@ Fields
 - Notes (non-editable)
 - Url (non-editable)
 - New Url (editable)
-- Target Category (a dropdown that allows to pick from: `Godot-News`, `GodotCon`, `Resources`, `Assets`, `Tutorials`, `Plugins`, `ProTips`, `Project-Templates`, `Showcases`, `Miscellanous`, `Shaders`)
+- Target Category (a dropdown that allows to pick from: `Godot-News`, `GodotCon`, `Resources`, `Assets`, `Tutorials`, `Plugins`, `ProTips`, `Project-Templates`, `Showcases`, `Miscellaneous`, `Shaders`)
 
 Buttons
 - Go to (when pressed, or keypressed space I want to open the URL in a new tab)
